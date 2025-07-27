@@ -1,274 +1,493 @@
 # MinBackup Usage Guide
 
-## Basic Commands
+MinBackup is a lightweight VM snapshot management tool that supports Multipass, VirtualBox, and VMware platforms with automatic scheduling and retention management.
 
-### Initialize MinBackup
+## Quick Start
+
 ```bash
-# Basic initialization
+# Initialize MinBackup
 minbackup init
 
-# Custom destination
-minbackup init --destination /path/to/backups
+# List all VMs and snapshots
+minbackup list
 
-# Use example configuration
+# Create a snapshot
+minbackup snapshot my-vm
+
+# Enable automatic snapshots every 4 hours
+minbackup auto enable 4h
+minbackup auto start
+```
+
+## Complete Command Reference
+
+### 1. Initialize Configuration
+
+```bash
+# Create default configuration
+minbackup init
+
+# Create with example configurations
+minbackup init --example development
 minbackup init --example server
 ```
 
-### Create Backups
+**What it creates:**
+- `minbackup.yaml` configuration file
+- Detects available VM platforms (Multipass, VirtualBox, VMware)
+- Sets default retention policy (keep last 7 snapshots)
+
+### 2. List VMs and Snapshots
+
 ```bash
-# Backup single file
-minbackup backup /path/to/file.txt
-
-# Backup directory
-minbackup backup /path/to/directory
-
-# Backup multiple paths
-minbackup backup /home/user/documents /home/user/projects
-
-# Custom backup name
-minbackup backup --name "daily-backup" /path/to/data
-
-# Exclude patterns
-minbackup backup --exclude "*.log" --exclude "tmp/*" /path/to/data
-```
-
-### List and Manage Backups
-```bash
-# List all backups
+# Basic VM listing
 minbackup list
 
-# List in JSON format
-minbackup list --format json
+# Show VM disk sizes
+minbackup list --show-sizes
 
-# Show backup details
-minbackup info backup_20250127_162651
-
-# Show backup contents
-minbackup info backup_20250127_162651 --contents
-
-# Verify backup integrity
-minbackup verify backup_20250127_162651
+# Filter by specific platform
+minbackup list --platform multipass
+minbackup list --platform virtualbox
 ```
 
-### Restore Backups
-```bash
-# Restore entire backup
-minbackup restore backup_20250127_162651 /restore/path
+**Example Output:**
+```
+🖥️ Virtual Machines & Snapshots
+================================================================================
 
-# Restore specific files
-minbackup restore backup_20250127_162651 /restore/path --files "*.txt"
+MULTIPASS:
+  📱 dev-server (Stopped) - Size: 2.1GB
+     📸 Snapshots: 4
+       🤖 auto-20250127-194522 (2025-01-27 19:45:22)
+       📦 minbackup-20250127-140530 (2025-01-27 14:05:30)
+       📦 backup-pre-update (2025-01-27 12:30:15)
+       📸 manual-snapshot (2025-01-26 16:45:22)
+  📱 test-vm (Running) - Size: 1.8GB
+     No snapshots
 
-# Verify before restore
-minbackup restore backup_20250127_162651 /restore/path --verify
+ℹ️ Summary: 2 VMs, 4 snapshots
 ```
 
-### Cleanup Operations
+**Icons:**
+- 🤖 = Automatic snapshot (created by scheduler)
+- 📦 = MinBackup snapshot (manual MinBackup created)
+- 📸 = Manual snapshot (created outside MinBackup)
+
+### 3. View VM Snapshots
+
 ```bash
-# Show what would be cleaned up
+# List snapshots for specific VM
+minbackup snapshots my-vm
+
+# Show detailed information
+minbackup snapshots my-vm --details
+
+# Show estimated sizes
+minbackup snapshots my-vm --show-sizes
+
+# Sort by name instead of date
+minbackup snapshots my-vm --sort name
+
+# JSON output for scripting
+minbackup snapshots my-vm --format json
+
+# Combine options
+minbackup snapshots my-vm --details --show-sizes
+```
+
+**Example Output:**
+```
+📸 Snapshots for VM: dev-server
+======================================================================
+#   Type Name                      Created              Est. Size
+----------------------------------------------------------------------
+1   AUTO auto-20250127-194522      2025-01-27 19:45:22  ~420MB
+2   MB   minbackup-20250127-140530  2025-01-27 14:05:30  ~380MB
+3   MB   backup-pre-update          2025-01-27 12:30:15  ~390MB
+4   MAN  manual-snapshot            2025-01-26 16:45:22  ~400MB
+
+Total snapshots: 4
+Automatic snapshots: 1
+MinBackup snapshots: 2
+Manual snapshots: 1
+```
+
+**Type Legend:**
+- `AUTO` = Automatic snapshot (scheduler created)
+- `MB` = MinBackup snapshot (manual)
+- `MAN` = Manual snapshot (external)
+
+### 4. Create Snapshots
+
+```bash
+# Create snapshot with auto-generated name
+minbackup snapshot my-vm
+
+# Create with custom name
+minbackup snapshot my-vm --name "before-major-update"
+
+# Specify platform (if multiple available)
+minbackup snapshot my-vm --platform multipass
+```
+
+**Auto-generated naming:**
+- Manual snapshots: `minbackup-YYYYMMDD-HHMMSS`
+- Automatic snapshots: `auto-YYYYMMDD-HHMMSS`
+
+**Examples:**
+```bash
+# Quick snapshot before changes
+minbackup snapshot production-vm
+
+# Named snapshot for specific purpose
+minbackup snapshot dev-vm --name "working-feature-auth"
+
+# Platform-specific (if you have multiple VM platforms)
+minbackup snapshot "Ubuntu Server" --platform virtualbox
+```
+
+### 5. Delete Snapshots
+
+```bash
+# Delete single snapshot
+minbackup delete-snapshot my-vm snapshot-name
+
+# Delete multiple snapshots
+minbackup delete-snapshot my-vm snapshot1 snapshot2 snapshot3
+
+# Delete ALL snapshots (with confirmation)
+minbackup delete-snapshot my-vm all
+
+# Skip confirmation prompt
+minbackup delete-snapshot my-vm snapshot-name --confirm
+
+# Delete without purging (Multipass two-step process)
+minbackup delete-snapshot my-vm snapshot-name --no-purge
+```
+
+**Examples:**
+```bash
+# Delete old snapshots
+minbackup delete-snapshot dev-server auto-20250120-100030 backup-old
+
+# Delete all snapshots (careful!)
+minbackup delete-snapshot test-vm all
+
+# Quick delete without confirmation
+minbackup delete-snapshot dev-vm old-snapshot --confirm
+
+# Multipass: delete without immediate purge
+minbackup delete-snapshot my-vm snapshot-name --no-purge
+```
+
+**Example Output:**
+```
+🗑️ Snapshots to delete from VM 'dev-server':
+  - auto-20250120-100030 (created: 2025-01-20 10:00:30)
+  - backup-old (created: 2025-01-19 15:20:10)
+
+Are you sure you want to delete and purge 2 snapshot(s)? [y/N]: y
+✅ Deleted and purged: auto-20250120-100030
+✅ Deleted and purged: backup-old
+
+ℹ️ Deleted 2 of 2 snapshots.
+```
+
+### 6. Cleanup Old Snapshots
+
+```bash
+# Preview what would be cleaned up
 minbackup cleanup --dry-run
 
 # Perform cleanup
 minbackup cleanup
 ```
 
-## VM Snapshot Management
+**Cleanup Rules:**
+- Keeps last 7 MinBackup snapshots per VM (configurable)
+- Only affects automatic and MinBackup snapshots
+- Manual snapshots (created outside MinBackup) are never deleted
+- Applies to snapshots starting with "auto", "minbackup", or "backup"
 
-### List VMs
+**Example Output:**
 ```bash
-# List all VMs
-minbackup vm list
+minbackup cleanup --dry-run
 
-# List VMs from specific platform
-minbackup vm list --platform virtualbox
+ℹ️ Dry run - showing what snapshots would be deleted:
+Retention policy: Keep last 7 MinBackup snapshots per VM
+----------------------------------------------------------------------
+
+  VM: dev-server (multipass)
+    Total MinBackup snapshots: 10
+    Would keep: 7
+    Would delete: 3
+      📦 minbackup-20250115-100030 (created: 2025-01-15 10:00:30)
+      🤖 auto-20250114-100030 (created: 2025-01-14 10:00:30)
+      📦 backup-20250113-100030 (created: 2025-01-13 10:00:30)
+
+ℹ️ Total snapshots that would be deleted: 3
 ```
 
-### Create Snapshots
+### 7. Automatic Snapshots
+
+#### Enable/Disable Automatic Snapshots
+
 ```bash
-# Create snapshot (auto-detect platform)
-minbackup vm snapshot my-vm
+# Enable with interval
+minbackup auto enable 30m     # Every 30 minutes
+minbackup auto enable 4h      # Every 4 hours
+minbackup auto enable 1d      # Every day
+minbackup auto enable 12h     # Every 12 hours
 
-# Specify platform
-minbackup vm snapshot my-vm --platform multipass
-
-# Custom snapshot name
-minbackup vm snapshot my-vm --name "pre-update-snapshot"
+# Disable automatic snapshots
+minbackup auto disable
 ```
 
-### Cleanup VM Snapshots
+**Supported intervals:**
+- `m` = minutes (e.g., `30m`, `45m`)
+- `h` = hours (e.g., `2h`, `6h`, `12h`)
+- `d` = days (e.g., `1d`, `3d`, `7d`)
+
+#### Control Scheduler Daemon
+
 ```bash
-# Clean up old snapshots
-minbackup vm cleanup
+# Start scheduler (runs in foreground)
+minbackup auto start
+
+# Check scheduler status
+minbackup auto status
+
+# Run snapshots immediately (one-time)
+minbackup auto run-now
 ```
 
-## Monitoring and Status
+**Note:** The scheduler runs in foreground. Use `Ctrl+C` to stop it.
 
-### System Status
+#### Scheduler Status
+
 ```bash
-# Show status summary
+# Show detailed status
+minbackup auto status
+
+# JSON output for scripting
+minbackup auto status --json
+```
+
+**Example Output:**
+```
+ℹ️ Automatic Snapshot Status
+==================================================
+
+Enabled: ✅ True
+Daemon Running: 🟢 True
+Interval: 4h
+
+Last Run: 2025-01-27 19:45:22
+Next Run: 2025-01-27 23:45:22
+
+VMs Monitored: 2
+Total Snapshots: 8
+
+🟢 Scheduler is running!
+```
+
+### 8. System Status
+
+```bash
+# Show system status
 minbackup status
 
-# JSON output
+# JSON output for scripting
 minbackup status --json
 ```
 
-### Example Status Output
+**Example Output:**
 ```
-📊 MinBackup Status
+🖥️ MinBackup VM Status
 ==================================================
 
-📦 Storage:
-  Destination: ./backups
-  Backups: 5
-  Total Size: 2.3 GB
-  Directory Size: 2.3 GB
+📸 Virtual Machines:
+  Available Platforms: multipass
+  Total VMs: 2
+  Total Snapshots: 8
+  MinBackup Snapshots: 4
+  Snapshot Retention: Keep last 7
 
-🖥️  Virtual Machines:
-  Available Platforms: multipass, virtualbox
-  Total VMs: 3
+ℹ️ VM Details:
+    📱 dev-server (multipass):
+      State: Stopped
+      Snapshots: 5 total, 3 MinBackup
+    📱 test-vm (multipass):
+      State: Running
+      Snapshots: 3 total, 1 MinBackup
 
-✅ No alerts
+✅ System ready for VM snapshot management
 ```
 
-## Configuration Examples
+## Workflow Examples
 
-### Basic Configuration
+### Daily Development Workflow
+
+```bash
+# 1. Morning: Check VM status
+minbackup list --show-sizes
+
+# 2. Before major changes: Create snapshot
+minbackup snapshot dev-vm --name "before-refactoring"
+
+# 3. After work: Check automatic snapshots
+minbackup snapshots dev-vm
+
+# 4. Weekly: Clean up old snapshots
+minbackup cleanup --dry-run
+minbackup cleanup
+```
+
+### Setting Up Automatic Backups
+
+```bash
+# 1. Initialize MinBackup
+minbackup init
+
+# 2. Set up automatic snapshots every 6 hours
+minbackup auto enable 6h
+
+# 3. Check configuration
+minbackup auto status
+
+# 4. Start the scheduler
+minbackup auto start
+
+# (Scheduler runs in foreground - use Ctrl+C to stop)
+```
+
+### Production Server Setup
+
+```bash
+# 1. Initialize with server configuration
+minbackup init --example server
+
+# 2. Test snapshot creation
+minbackup snapshot production-vm --name "initial-snapshot"
+
+# 3. Set up daily automatic snapshots
+minbackup auto enable 1d
+
+# 4. Run immediate test
+minbackup auto run-now
+
+# 5. Start scheduler daemon
+minbackup auto start
+```
+
+### Emergency Recovery Preparation
+
+```bash
+# 1. Create immediate snapshot before risky operation
+minbackup snapshot critical-vm --name "pre-emergency-fix"
+
+# 2. Verify snapshot was created
+minbackup snapshots critical-vm --details
+
+# 3. Proceed with risky operation...
+
+# 4. If needed, use native VM platform tools to restore:
+# Multipass: multipass restore critical-vm.pre-emergency-fix
+# VirtualBox: vboxmanage snapshot critical-vm restore pre-emergency-fix
+```
+
+## Platform-Specific Examples
+
+### Windows (Multipass)
+
+```cmd
+REM Initialize MinBackup
+minbackup init
+
+REM List VMs with sizes
+minbackup list --show-sizes
+
+REM Create snapshot (VM auto-stopped if running)
+minbackup snapshot pacific-bluegill --name "pre-update"
+
+REM Set up automatic snapshots
+minbackup auto enable 4h
+minbackup auto start
+
+REM In another PowerShell window, monitor status:
+minbackup auto status
+minbackup status
+```
+
+### Linux/macOS (VirtualBox)
+
+```bash
+# Initialize for server use
+minbackup init --example server
+
+# Create snapshots (works with running VMs)
+minbackup snapshot "Ubuntu Server" --name "before-kernel-update"
+
+# Set up automated snapshots
+minbackup auto enable 12h
+
+# Start scheduler in background (using screen/tmux)
+screen -S minbackup-scheduler
+minbackup auto start
+# Ctrl+A, D to detach
+
+# Check status later
+minbackup status
+minbackup snapshots "Ubuntu Server" --show-sizes
+```
+
+## Configuration
+
+### Basic Configuration (minbackup.yaml)
+
 ```yaml
-backup:
-  destination: "./backups"
-  retention:
-    count: 7
-    days: 30
-  compression: gzip
-  exclude_patterns:
-    - "*.tmp"
-    - "*.log"
-    - "__pycache__"
-
 vm:
   platforms:
     - multipass
     - virtualbox
-  snapshot_retention: 7
+    - vmware
+  snapshot_retention: 7  # Keep last 7 snapshots
+  timeout: 300
 
 notifications:
   console: true
   file: "./minbackup.log"
-  level: INFO
+  level: "INFO"
 ```
 
-### Server Configuration
-```yaml
-backup:
-  destination: "/opt/backups"
-  retention:
-    count: 14
-    days: 90
-  exclude_patterns:
-    - "*.tmp"
-    - "*.log"
-    - "/var/cache/*"
-    - "/tmp/*"
+### Development Environment
 
+```yaml
+vm:
+  platforms:
+    - multipass
+  snapshot_retention: 5  # Less retention for dev
+  timeout: 300
+
+notifications:
+  console: true
+  file: "./minbackup.log"
+  level: "DEBUG"  # More verbose for development
+```
+
+### Server Environment
+
+```yaml
 vm:
   platforms:
     - virtualbox
-  snapshot_retention: 10
+    - vmware
+  snapshot_retention: 14  # More retention for production
+  timeout: 600
 
 notifications:
   console: true
   file: "/var/log/minbackup.log"
-  level: INFO
-
-monitoring:
-  max_backup_size_gb: 50
-  alert_threshold_gb: 40
-```
-
-## Automation Examples
-
-### Cron Jobs
-```bash
-# Daily backup at 2 AM
-0 2 * * * /path/to/venv/bin/minbackup backup /home/user/important-data
-
-# Weekly cleanup on Sunday at 3 AM
-0 3 * * 0 /path/to/venv/bin/minbackup cleanup
-
-# Daily VM snapshots at 1 AM
-0 1 * * * /path/to/venv/bin/minbackup vm snapshot production-vm
-```
-
-### Shell Scripts
-```bash
-#!/bin/bash
-# backup-script.sh
-
-# Set configuration
-export MINBACKUP_BACKUP_DESTINATION="/backups"
-export MINBACKUP_LOG_LEVEL=INFO
-
-# Create backup
-minbackup backup /home/user/projects /home/user/documents
-
-# Create VM snapshot
-minbackup vm snapshot dev-vm
-
-# Cleanup old backups
-minbackup cleanup
-
-# Send status
-minbackup status
-```
-
-## Best Practices
-
-### 1. Regular Backups
-- Schedule daily backups for important data
-- Use descriptive backup names
-- Verify backups periodically
-
-### 2. Retention Management
-- Set appropriate retention counts based on storage capacity
-- Consider different retention policies for different data types
-- Monitor storage usage regularly
-
-### 3. VM Snapshots
-- Create snapshots before major system changes
-- Use descriptive snapshot names
-- Clean up old snapshots regularly
-
-### 4. Monitoring
-- Check backup status regularly
-- Set up alerts for storage thresholds
-- Monitor backup sizes and trends
-
-### 5. Recovery Testing
-- Periodically test restore procedures
-- Verify backup integrity
-- Document recovery procedures
-
-## Advanced Usage
-
-### Custom Exclude Patterns
-```bash
-# Exclude by file extension
-minbackup backup /data --exclude "*.tmp" --exclude "*.cache"
-
-# Exclude directories
-minbackup backup /home --exclude "*/node_modules" --exclude "*/.git"
-
-# Complex patterns
-minbackup backup /project --exclude "build/*" --exclude "dist/*" --exclude "*.pyc"
-```
-
-### Environment-Specific Configurations
-```bash
-# Development
-minbackup --config dev-config.yaml backup ./src
-
-# Production
-minbackup --config prod-config.yaml backup /opt/application
-
-# Testing
-MINBACKUP_LOG_LEVEL=DEBUG minbackup backup /test/data
+  level: "WARNING"  # Less verbose for production
 ```

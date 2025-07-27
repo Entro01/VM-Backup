@@ -1,0 +1,31 @@
+backup:
+  checksum: sha256
+  compression: gzip
+  destination: C:\Backups
+  exclude_patterns:
+  - '*.tmp'
+  - '*.log'
+  - __pycache__
+  - .git
+  retention:
+    count: 7
+    days: 30
+monitoring:
+  alert_threshold_gb: 8
+  max_backup_size_gb: 10
+notifications:
+  console: true
+  file: ./minbackup.log
+  level: INFO
+vm:
+  multipass:
+    timeout: 300
+  platforms:
+  - multipass
+  - virtualbox
+  - vmware
+  snapshot_retention: 7
+  virtualbox:
+    timeout: 600
+  vmware:
+    timeout: 600

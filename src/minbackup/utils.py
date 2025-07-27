@@ -1,6 +1,7 @@
 """Utility functions and notification system for MinBackup."""
 
 import os
+import sys
 import logging
 import hashlib
 from datetime import datetime
@@ -19,6 +20,16 @@ class NotificationManager:
         """
         self.config = config
         self.logger = self._setup_logger()
+        self.use_unicode = self._check_unicode_support()
+    
+    def _check_unicode_support(self) -> bool:
+        """Check if the terminal supports Unicode characters."""
+        try:
+            # Try to encode a checkmark to see if it's supported
+            "✅".encode(sys.stdout.encoding or 'utf-8')
+            return True
+        except (UnicodeEncodeError, LookupError):
+            return False
     
     def _setup_logger(self) -> logging.Logger:
         """Setup logging configuration."""
@@ -31,23 +42,31 @@ class NotificationManager:
         level = getattr(logging, self.config.get('notifications.level', 'INFO'))
         logger.setLevel(level)
         
-        # Console handler
+        # Console handler with encoding fix
         if self.config.get('notifications.console', True):
-            console_handler = logging.StreamHandler()
+            console_handler = logging.StreamHandler(sys.stdout)
+            
+            # Set encoding for Windows compatibility
+            if hasattr(console_handler.stream, 'reconfigure'):
+                try:
+                    console_handler.stream.reconfigure(encoding='utf-8', errors='replace')
+                except (AttributeError, OSError):
+                    pass
+            
             console_formatter = logging.Formatter(
                 '%(asctime)s - %(levelname)s - %(message)s'
             )
             console_handler.setFormatter(console_formatter)
             logger.addHandler(console_handler)
         
-        # File handler
+        # File handler with UTF-8 encoding
         log_file = self.config.get('notifications.file')
         if log_file:
             # Ensure log directory exists
             log_path = Path(log_file)
             log_path.parent.mkdir(parents=True, exist_ok=True)
             
-            file_handler = logging.FileHandler(log_file)
+            file_handler = logging.FileHandler(log_file, encoding='utf-8')
             file_formatter = logging.Formatter(
                 '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
             )
@@ -55,6 +74,21 @@ class NotificationManager:
             logger.addHandler(file_handler)
         
         return logger
+    
+    def _format_message(self, message: str, prefix: str) -> str:
+        """Format message with appropriate prefix based on Unicode support."""
+        if self.use_unicode:
+            return f"{prefix} {message}"
+        else:
+            # Use ASCII alternatives for Windows compatibility
+            ascii_prefixes = {
+                "✅": "[SUCCESS]",
+                "❌": "[FAILED]",
+                "⚠️": "[WARNING]",
+                "ℹ️": "[INFO]"
+            }
+            ascii_prefix = ascii_prefixes.get(prefix, prefix)
+            return f"{ascii_prefix} {message}"
     
     def info(self, message: str) -> None:
         """Log info message."""
@@ -70,11 +104,13 @@ class NotificationManager:
     
     def success(self, message: str) -> None:
         """Log success message."""
-        self.logger.info(f"✅ {message}")
+        formatted_message = self._format_message(message, "✅")
+        self.logger.info(formatted_message)
     
     def failure(self, message: str) -> None:
         """Log failure message."""
-        self.logger.error(f"❌ {message}")
+        formatted_message = self._format_message(message, "❌")
+        self.logger.error(formatted_message)
 
 
 def generate_timestamp() -> str:
