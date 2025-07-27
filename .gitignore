@@ -1,4 +1,4 @@
-# Environments
+# Python virtual environments
 .env
 .venv
 env/
@@ -6,3 +6,28 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Python package metadata
+*.egg-info/
+dist/
+build/
+__pycache__/
+*.pyc
+*.pyo
+
+# Log files
+*.log
+minbackup.log
+
+# Scheduler state
+minbackup_scheduler.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/project files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
