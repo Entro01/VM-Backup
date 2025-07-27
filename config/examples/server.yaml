@@ -1,0 +1,21 @@
+# Example configuration for server backup
+backup:
+  destination: "/opt/backups"
+  retention:
+    count: 14
+    days: 90
+  exclude_patterns:
+    - "*.tmp"
+    - "*.log"
+    - "/var/cache/*"
+    - "/tmp/*"
+
+vm:
+  platforms:
+    - virtualbox
+  snapshot_retention: 10
+
+notifications:
+  console: true
+  file: "/var/log/minbackup.log"
+  level: DEBUG

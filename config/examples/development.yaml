@@ -1,0 +1,22 @@
+# Example configuration for development environment
+backup:
+  destination: "./dev-backups"
+  retention:
+    count: 3
+    days: 7
+  exclude_patterns:
+    - "node_modules"
+    - "*.pyc"
+    - ".venv"
+    - "dist"
+    - "build"
+
+vm:
+  platforms:
+    - multipass
+  snapshot_retention: 3
+
+notifications:
+  console: true
+  file: "./dev-backup.log"
+  level: DEBUG

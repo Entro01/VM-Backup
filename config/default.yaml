@@ -1,0 +1,54 @@
+# MinBackup Default Configuration
+backup:
+  # Default backup destination
+  destination: "./backups"
+  
+  # Retention policies
+  retention:
+    count: 7        # Keep last 7 backups
+    days: 30        # Keep backups for 30 days
+    
+  # Compression settings
+  compression: gzip
+  
+  # Checksum algorithm
+  checksum: sha256
+  
+  # Files/directories to exclude from backup
+  exclude_patterns:
+    - "*.tmp"
+    - "*.log"
+    - "__pycache__"
+    - ".git"
+
+# VM snapshot configuration
+vm:
+  # Supported platforms (auto-detected)
+  platforms:
+    - multipass
+    - virtualbox
+    - vmware
+    
+  # VM snapshot retention
+  snapshot_retention: 7
+  
+  # VM-specific settings
+  multipass:
+    timeout: 300  # 5 minutes
+  
+  virtualbox:
+    timeout: 600  # 10 minutes
+  
+  vmware:
+    timeout: 600  # 10 minutes
+
+# Notification settings
+notifications:
+  console: true
+  file: "./minbackup.log"
+  level: INFO
+  
+# Monitoring settings
+monitoring:
+  max_backup_size_gb: 10
+  alert_threshold_gb: 8
